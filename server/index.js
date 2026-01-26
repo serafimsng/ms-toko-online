@@ -7,27 +7,39 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('./models/User'); // Import model User yg baru dibuat
 
-const JWT_SECRET = "kuncirahasia_courtney_store_123"; // Harusnya di .env, tapi hardcode dulu gapapa buat belajar
+const JWT_SECRET = "kuncirahasia_courtney_store_123"; 
+
 // --- PENGATURAN PENTING (Agar tidak error saat upload gambar) ---
-// Kita naikkan batas ukuran data jadi 50MB supaya gambar HD bisa masuk
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Izinkan Frontend mengakses Backend
 app.use(cors());
 
-// --- KONEKSI DATABASE ---
-// ✅ INI BENAR (Pakai kutip)
-mongoose.connect('mongodb+srv://admin:admin123@cluster0.rtinywq.mongodb.net/?appName=Cluster0')
-    .then(() => console.log("✅ Database MongoDB Atlas Terhubung!"))
-    .catch(err => console.log("❌ Gagal Konek Database:", err));
+// --- KONEKSI DATABASE SPESIAL VERCEL (Anti Timeout) ---
+const connectDB = async () => {
+  if (mongoose.connection.readyState >= 1) return;
+  try {
+    // 👇 INI LINK MONGODB KAMU
+    await mongoose.connect('mongodb+srv://admin:admin123@cluster0.rtinywq.mongodb.net/?appName=Cluster0');
+    console.log("✅ Database MongoDB Terhubung!");
+  } catch (err) {
+    console.error("❌ Gagal Konek:", err);
+  }
+};
+
+// Middleware: Paksa connect database sebelum memproses request apapun
+app.use(async (req, res, next) => {
+  await connectDB();
+  next();
+});
 
 // --- MODEL DATA PRODUK ---
-const ProductSchema = new mongoose.Schema({
-    name: String,
-    price: Number,
-    description: String,
-    image: String
+const ProductSchema = new mongoose.mongoose.Schema({
+  name: String,
+  price: Number,
+  description: String,
+  image: String
 });
 const Product = mongoose.model('Product', ProductSchema);
 
@@ -35,114 +47,91 @@ const Product = mongoose.model('Product', ProductSchema);
 
 // 1. READ ALL (Ambil Semua Data)
 app.get('/products', async (req, res) => {
-    try {
-        const products = await Product.find();
-        res.json(products);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
+  try {
+    const products = await Product.find();
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
 
 // 2. READ ONE (Ambil 1 Data berdasarkan ID)
 app.get('/products/:id', async (req, res) => {
-    try {
-        const product = await Product.findById(req.params.id);
-        if (!product) return res.status(404).json({ message: "Produk tidak ditemukan" });
-        res.json(product);
-    } catch (error) {
-        res.status(404).json({ message: "ID Produk salah" });
-    }
+  try {
+    const product = await Product.findById(req.params.id);
+    res.json(product);
+  } catch (error) {
+    res.status(404).json({ message: "Produk tidak ditemukan" });
+  }
 });
 
-// 3. CREATE (Tambah Produk Baru)
+// 3. CREATE (Tambah Data Baru)
 app.post('/products', async (req, res) => {
-    try {
-        const newProduct = new Product(req.body);
-        const savedProduct = await newProduct.save();
-        res.status(201).json(savedProduct);
-    } catch (error) {
-        res.status(400).json({ message: "Gagal menyimpan data" });
-    }
+  try {
+    const newProduct = new Product(req.body);
+    await newProduct.save();
+    res.status(201).json(newProduct);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
 });
 
-// 4. UPDATE (Edit Produk) - PERHATIKAN BAGIAN INI
+// 4. UPDATE (Edit Data)
 app.put('/products/:id', async (req, res) => {
-    try {
-        const updatedProduct = await Product.findByIdAndUpdate(
-            req.params.id,
-            req.body,
-            { new: true } // PENTING: Agar yang dikembalikan adalah data BARU, bukan yang lama
-        );
-        res.json(updatedProduct);
-    } catch (error) {
-        res.status(400).json({ message: "Gagal update produk" });
-    }
+  try {
+    const updatedProduct = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(updatedProduct);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
 });
 
-// 5. DELETE (Hapus Produk)
+// 5. DELETE (Hapus Data)
 app.delete('/products/:id', async (req, res) => {
-    try {
-        await Product.findByIdAndDelete(req.params.id);
-        res.json({ message: "Produk berhasil dihapus" });
-    } catch (error) {
-        res.status(500).json({ message: "Gagal menghapus produk" });
-    }
+  try {
+    await Product.findByIdAndDelete(req.params.id);
+    res.json({ message: "Produk berhasil dihapus" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
 
-// --- FITUR AUTHENTICATION (LO3) ---
+// --- FITUR LOGIN & REGISTER (Auth) ---
 
-// 1. REGISTER (Daftar User Baru)
+// REGISTER
 app.post('/register', async (req, res) => {
-    try {
-        const { username, password } = req.body;
-
-        // Cek apakah username sudah ada?
-        const existingUser = await User.findOne({ username });
-        if (existingUser) {
-            return res.status(400).json({ message: "Username sudah dipakai!" });
-        }
-
-        // Enkripsi password sebelum disimpan
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Simpan ke database
-        const newUser = new User({ username, password: hashedPassword });
-        await newUser.save();
-
-        res.status(201).json({ message: "Registrasi berhasil! Silakan login." });
-    } catch (error) {
-        res.status(500).json({ message: "Error saat registrasi", error });
-    }
+  try {
+    const { username, password } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = new User({ username, password: hashedPassword });
+    await user.save();
+    res.status(201).json({ message: 'User created' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// 2. LOGIN (Masuk & Dapat Token)
+// LOGIN
 app.post('/login', async (req, res) => {
-    try {
-        const { username, password } = req.body;
+  try {
+    const { username, password } = req.body;
+    const user = await User.findOne({ username });
+    if (!user) return res.status(400).json({ error: 'User not found' });
 
-        // Cari user di database
-        const user = await User.findOne({ username });
-        if (!user) {
-            return res.status(400).json({ message: "Username tidak ditemukan" });
-        }
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
 
-        // Cek apakah password benar?
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(400).json({ message: "Password salah!" });
-        }
-
-        // Jika benar, buatkan TOKEN (Tiket Masuk)
-        const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '1h' });
-
-        res.json({ token, username: user.username });
-    } catch (error) {
-        res.status(500).json({ message: "Error saat login", error });
-    }
+    const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '1h' });
+    res.json({ token });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// --- JALANKAN SERVER ---
-const PORT = 5000;
-app.listen(PORT, () => console.log(`🚀 Server berjalan mulus di port ${PORT}...`));
-
+// --- JANGAN LUPA BARIS INI (Wajib untuk Vercel) ---
 module.exports = app;
+
+// Jalankan Server (Hanya jika dijalankan manual, bukan oleh Vercel)
+if (require.main === module) {
+  app.listen(5000, () => console.log('Server berjalan di port 5000'));
+}

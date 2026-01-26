@@ -11,7 +11,7 @@ export default function Login({ setToken }) { // Terima props setToken
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post('http://localhost:5000/login', { username, password });
+      const res = await axios.post('https://toko-online-lab.vercel.app/login', { username, password });
       
       // SIMPAN TOKEN (Sesuai Soal LO3)
       const token = res.data.token;

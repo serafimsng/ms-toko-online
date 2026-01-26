@@ -68,7 +68,7 @@ function ProductForm() {
 
   useEffect(() => {
     if (id) {
-      axios.get(`http://localhost:5000/products/${id}`)
+      axios.get(`https://toko-online-lab.vercel.app/products/${id}`)
         .then(res => setFormData(res.data))
         .catch(err => console.error(err));
     }
@@ -81,14 +81,14 @@ function ProductForm() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (id) {
-      axios.put(`http://localhost:5000/products/${id}`, formData)
+      axios.put(`https://toko-online-lab.vercel.app/products/${id}`, formData)
         .then(() => {
           alert("✅ Produk berhasil diperbarui!");
           navigate("/");
         })
         .catch(err => alert("Gagal update: " + err.message));
     } else {
-      axios.post(`http://localhost:5000/products`, formData)
+      axios.post(`https://toko-online-lab.vercel.app/products`, formData)
         .then(() => {
           alert("✅ Produk baru berhasil disimpan!");
           navigate("/");
@@ -143,7 +143,7 @@ function ProductList({ addToCart, token }) { // TERIMA PROPS TOKEN
   const [loading, setLoading] = useState(true);
 
   const fetchProducts = () => {
-    axios.get('http://localhost:5000/products')
+    axios.get('https://toko-online-lab.vercel.app/products')
       .then(res => { 
         setProducts(res.data); 
         setLoading(false); 
@@ -158,7 +158,7 @@ function ProductList({ addToCart, token }) { // TERIMA PROPS TOKEN
 
   const handleDelete = (id, namaProduk) => {
     if (window.confirm(`Yakin ingin menghapus produk "${namaProduk}" secara permanen?`)) {
-      axios.delete(`http://localhost:5000/products/${id}`)
+      axios.delete(`https://toko-online-lab.vercel.app/products/${id}`)
         .then(() => {
           alert("🗑️ Produk berhasil dihapus.");
           fetchProducts();
@@ -237,7 +237,7 @@ function ProductDetail({ addToCart, token }) { // TERIMA PROPS TOKEN
   const [product, setProduct] = useState(null);
 
   useEffect(() => {
-    axios.get(`http://localhost:5000/products/${id}`)
+    axios.get(`https://toko-online-lab.vercel.app/products/${id}`)
       .then(res => setProduct(res.data))
       .catch(err => console.error(err));
   }, [id]);

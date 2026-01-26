@@ -11,7 +11,7 @@ export default function Register() {
   const handleRegister = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:5000/register', { username, password });
+      await axios.post('https://toko-online-lab.vercel.app/register', { username, password });
       alert('Registrasi Berhasil! Silakan Login.');
       navigate('/login'); // Pindah ke halaman login
     } catch (error) {

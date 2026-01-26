@@ -144,3 +144,5 @@ app.post('/login', async (req, res) => {
 // --- JALANKAN SERVER ---
 const PORT = 5000;
 app.listen(PORT, () => console.log(`🚀 Server berjalan mulus di port ${PORT}...`));
+
+module.exports = app;
